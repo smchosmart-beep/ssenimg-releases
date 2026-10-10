@@ -1,0 +1,32 @@
+# 쎈img 릴리스 게시: 코드 저장소(ssenimg)의 scripts/release.cjs가 서명한 파일을 publish 브랜치에 올리고 이 작업을 실행한다.
+# 이 작업은 매니페스트 전자서명과 파일 크기·SHA-256을 확인한 뒤에만 공개 릴리스를 만들고, publish 브랜치를 지운다.
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "올린 파일이 있는 브랜치"
+        default: publish
+        required: true
+permissions:
+  contents: write
+concurrency: publish
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 1
+      - name: 파일 합치기·서명·체크섬 확인
+        run: node .github/scripts/publish.cjs prepare
+      - name: 릴리스 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/publish.cjs release
+      - name: publish 브랜치 지우기
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${{ inputs.branch }}" || true
